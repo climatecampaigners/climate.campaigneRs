@@ -1,0 +1,36 @@
+Package: climate.campaigneRs
+Type: Package
+Title: Access CAMPAIGNers Data and Generate Report
+Version: 0.1.0
+Authors@R: c(person("Julia", "Haider", role = c("cre", "aut"),
+                     email = "haider@energieinstitut-linz.at"),
+             person("Rudolf", "Kapeller", role = "ctb",
+                     email = "kapeller@energieinstitut-linz.at"))
+Description: The CAMPAIGNers app ("Climate Campaigners", available in App Store and 
+              Google Play Store) is a platform used to engage with citizens and 
+              motiviate pro-environmental behavior using a goal-setting network
+              and lifestyle challenges. The package allows to access API 
+              endpoints that provide data about challenges, user values (questions),
+              data (anonymized activities of app users) and weekly assignments 
+              (assignment of users to receive prompted challenges). 
+              This project has received funding from the European Union’s Horizon 
+              research 2020 and innovation programme under grant agreement No. 101003815.
+License: GPL-2
+Encoding: UTF-8
+Imports: 
+    dplyr,
+    DT,
+    formattable,
+    ggmice,
+    ggplot2,
+    kableExtra,
+    leaflet,
+    openxlsx,
+    rmarkdown,
+    showtext,
+    stringr,
+    tidyr,
+    sysfonts,
+    scales
+RoxygenNote: 7.2.3
+Depends: R (>= 4.2.0)

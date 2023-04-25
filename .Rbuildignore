@@ -1,0 +1,9 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+TODO.md
+inst/extdata/report.html
+inst/report.html
+inst/extdata/data.*
+^LICENSE\.md$
+inst/extdata/test.R
+inst/extdata/rest.Rmd

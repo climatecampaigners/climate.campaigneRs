@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500&display=swap');
+
+body {
+  font-family: 'Poppins', sans-serif;
+  font-size: 16pt;
+}
+
+.main-container {
+  max-width: 1800px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+
+.title {
+  margin-top: 2em !important;
+  margin-bottom: 0.75em;
+}
+
+
+.leaflet {
+    margin: auto;
+}
+
+.hero-image {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 2em;
+  background-image: linear-gradient(rgba(0, 0, 0, .2), rgba(0, 0, 0, .2)),
+    url(CC-Saints-shane-rounce-unsplash.jpg);
+  height: 800px;
+  background-size: cover;
+  background-position: center center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+
+.logo-image {
+  height: 100px;
+  width: 100px;
+  background-image: url(CC-Logo-negative.png);
+  background-size: contain;
+  background-repeat: no-repeat;
+  float: left;
+}
+
+
+.eu-logo-image {
+  height: 100px;
+  width: 100px;
+  background-image: url(eu-logo.png);
+  background-size: contain;
+  background-repeat: no-repeat;
+  float: left;
+  margin-top:2%;
+}
+
+
+.text-logo-container {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: left;
+  text-align: left;
+  color: #ffffff;
+}
+
+
+.top-text {
+  font-size: 68px;
+  margin-top: 5%;
+}
+
+.bottom-text {
+  font-size: 20px;
+  margin-top:10%;
+
+}
+

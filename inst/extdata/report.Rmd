@@ -1,0 +1,916 @@
+---
+runtime: shiny
+title: "Deliverable 5.2" 
+date: "`r format(Sys.Date(), '%d.%m.%Y')`"
+params:
+  write_excel: FALSE
+  echo: FALSE
+  shiny: FALSE
+  saveFig: TRUE
+  out_dir:
+output: 
+  html_document:
+    css: style.css
+    includes:
+      in_header: hero-image.html
+    keep_md: TRUE
+---
+
+```{r, echo=FALSE}
+suppressMessages({
+  library("climate.campaigneRs")
+  library("ggplot2")
+  library("scales")
+  library("leaflet")
+  library("showtext")
+  library("dplyr")
+  library("kableExtra")
+  library("formattable")
+  library("DT")
+  library("ggmice")
+  library("stringr")
+  library("openxlsx")
+  library("tidyr")
+  library("sysfonts")
+  library("shiny")
+  sysfonts::font_add_google("Poppins", family = "poppins")
+})
+```
+
+
+# Introduction
+This report was auto generated using the `render_report()` function from the `climate.campaigneRs` R package. The report was generated with various parameters, including `saveFig` which controls whether all plots are saved as PNG, `write_excel` and `out_dir` which control if the API responses are saved as a single Excel file to the specified directory, and `echo` which controls whether the code for this report is shown.
+The `shiny` parameter in the `render_report()` indicates if the report will be rendered in a `shiny` format, which allows for interactive filtering of the aggregated challenges by various variables. On the other hand, if `shiny = FALSE` (which is the default value), the report will be rendered in standard HTML format, without the interactive filtering feature.
+
+<br>
+
+The key functions in this package are
+
+- get_\*() where \* is one of data, challenges, user_values, weekly_assignments
+  - Access API endpoint
+  - Validate and prepare data
+  - Return R data frame
+
+- render_report()
+  - Get latest data from API with get_\*() functions
+  - Optional: save all data in one Excel file
+  - Plot and handle missing values
+  - User data visualization
+  - Overview of optional variables from footprint calculation and missing values
+  - Interactive table of all challenges
+  - Top 10 challenges
+  - Visualization of follow up questions of top 10 challenges
+  - HTML or Shiny report
+
+
+
+<br>
+
+# Installation
+
+The R package will be made available on GitHub. 
+
+```{r, echo=TRUE, eval=FALSE}
+devtools::install_github("TBA/climate.campaigneRs")
+```
+
+
+<br>
+
+# Access the database
+
+Accessing and preparing the data involves these steps:
+
+- Handling empty strings and NA
+- Error handling 
+- Verifying variables
+- Data: Adding variables "challenges.X.success" that indicate if a challenge was finished **successfully**
+
+```{r, echo=TRUE}
+user_values <- climate.campaigneRs::get_user_values()
+challenges <- climate.campaigneRs::get_challenges()
+weekly_assignments <- climate.campaigneRs::get_weekly_assignments()
+
+result <- climate.campaigneRs::get_data(challenges)
+data <- result$data
+```
+
+```{r, echo=FALSE}
+if (params$saveFig) {
+  dev = "png"
+  dpi = 300
+} else {
+  dev = NULL
+  dpi = NULL
+}
+
+knitr::opts_chunk$set(eval = !is.null(data), 
+                      echo = params$echo, 
+                      fig.align = "center",
+                      fig.width = 3, 
+                      fig.height = 2,
+                      dev = dev,
+                      dpi = dpi
+                      )
+
+textsize = 6
+labelsize = 1.5
+```
+
+
+```{r, results='asis'}
+value <- nrow(data)
+
+# info box
+cat('<div style="text-align:left; background-color:#69a341; color:#fff; padding:10px; border-radius: 5px; max-width: 325px">')
+cat(paste0('<h3>App users (', format(Sys.Date(), '%d.%m.%Y'),  ')</h3>'))
+cat('<p>', value, '</p>')
+cat('</div>')
+```
+
+
+```{r}
+if (params$write_excel) {
+  out <- openxlsx::createWorkbook()
+
+  openxlsx::addWorksheet(out, "data")
+  openxlsx::addWorksheet(out, "user_values")
+  openxlsx::addWorksheet(out, "challenges")
+  openxlsx::addWorksheet(out, "weekly_assignments")
+  
+  openxlsx::writeData(out, sheet = "data", x = data)
+  openxlsx::writeData(out, sheet = "user_values", x = user_values)
+  openxlsx::writeData(out, sheet = "challenges", x = challenges)
+  openxlsx::writeData(out, sheet = "weekly_assignments", x = weekly_assignments)
+  
+  out_name <- paste0("data_", Sys.Date(), ".xlsx")
+  openxlsx::saveWorkbook(out, file.path(params$out_dir, out_name), overwrite = TRUE)
+
+}
+```
+<br>
+
+# Data validation
+
+## Missing values pattern in `data` dataset
+
+Users that never interacted with the app are removed from the dataset. 
+This is the case when all values that require input from users are missing.
+
+```{r NA-pattern, fig.showtext=TRUE, fig.width=6, fig.height=4}
+# personal information
+
+from <- "uid"
+to <- "occupation"
+
+df <- data[, colnames(data)[which(colnames(data) == from):which(colnames(data) == to)]]
+g <- ggmice::plot_pattern(df, rotate = FALSE)
+g <- suppressMessages(
+  g + theme(text = element_text(size = textsize), 
+            axis.title.y = element_text(margin = margin(t = 0, r = 5, b = 0, l = 0)),
+            axis.title.y.right = element_text(margin = margin(t = 0, r = 0, b = 0, l = 5)),
+            axis.title.x = element_text(margin = margin(t = 5, r = 0, b = 0, l = 0)),
+            axis.title.x.top = element_text(margin = margin(t = 0, r = 0, b = 5, l = 0))) +
+    scale_fill_manual(values = c(observed = "#69a341", 
+                                 missing = "#3f3f3f"))
+  )
+g
+```
+
+
+
+```{r}
+# remove users that did not provide any user information
+df <- df[rowSums(is.na(subset(df, select = -c(uid)))) != ncol(subset(df, select = -c(uid))), ]
+data <- data[data$uid %in% df$uid, ]
+```
+
+
+# User data
+
+
+```{r Gender-distribution, fig.showtext=TRUE} 
+climate.campaigneRs::barchart(data$gender, useNA = FALSE, textsize = textsize,
+                              labelsize = labelsize, 
+                              title = paste0("Gender distribution \nn = ", 
+                                             sum(!is.na(data$gender)), ", NA = ", 
+                                             sum(is.na(data$gender))))
+```
+
+<br><br><br>
+
+
+```{r Age-distribution, fig.showtext=TRUE}
+climate.campaigneRs::barchart(data$age, useNA = FALSE, textsize = textsize,
+                              labelsize = labelsize,
+                              title = paste0("Age distribution \nn = ", 
+                                             sum(!is.na(data$age)), ", NA = ", 
+                                             sum(is.na(data$age))))
+```
+
+<br><br><br>
+
+
+
+```{r Age-Gender-distribution, fig.showtext=TRUE, fig.height=2.5}
+tab <- prop.table(table(data$age, data$gender), margin = 2)
+tab <- as.data.frame(tab)
+label <- paste0(round(tab$Freq * 100, 1), "%")
+label[label == "0%"] <- ""
+
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, max(tab$Freq) * 1.2), breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)) +
+  scale_x_discrete(limits = rev(levels(tab$Var1))) + 
+  theme(panel.background = element_rect(fill = NA),
+        axis.line = element_line(linetype = "solid"),
+        text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize)) +
+  geom_text(aes(label = label), hjust = -0.1, size = labelsize,
+            family = "poppins") +
+  ggtitle(paste0("Age distribution by gender \nn = ", 
+                 sum(table(data$age, data$gender)), ", NA = ", 
+                 nrow(data) - sum(table(data$age, data$gender)))) +
+  ylab("") +
+  xlab("") +
+  annotate("segment", x = -Inf, xend = Inf, y = -Inf, yend = -Inf) +
+  annotate("segment", x = -Inf, xend = -Inf, y = -Inf, yend = Inf) +
+  facet_wrap(~Var2) +
+  coord_flip()
+```
+
+<br><br><br>
+
+```{r Education-distribution, fig.showtext=TRUE}
+climate.campaigneRs::barchart(data$education, useNA = FALSE, textsize = textsize,
+                              labelsize = labelsize, 
+                              title = paste0("Education distribution \nn = ", 
+                                             sum(!is.na(data$education)), ", NA = ", 
+                                             sum(is.na(data$education))))
+```
+
+
+<br><br><br>
+
+
+```{r occupation-distribution, fig.showtext=TRUE}
+climate.campaigneRs::barchart(data$occupation, useNA = FALSE, textsize = textsize,
+                              labelsize = labelsize,
+                              title = paste0("Occupation distribution \nn = ", 
+                                             sum(!is.na(data$occupation)), ", NA = ", 
+                                             sum(is.na(data$occupation))))
+```
+
+
+
+```{r}
+# Dataset from Google Public Data, licensed under CC BY 4.0
+# See https://developers.google.com/public-data/docs/canonical/countries_csv for details
+
+countries <- read.csv2("countries.csv", encoding = "latin1")
+countries$latitude <- as.numeric(countries$latitude)
+countries$longitude <- as.numeric(countries$longitude)
+
+attr(countries, "source") <- "Dataset from Google Public Data, licensed under CC BY 4.0. See https://developers.google.com/public-data/docs/canonical/countries_csv for details."
+```
+
+
+
+### Number of users by country
+
+```{r}
+tab <- table(data$country)
+tab <- as.data.frame(tab)
+
+# inner join
+tab_merged <- merge(countries, tab, by.x = "name", by.y = "Var1")
+```
+
+
+We want to check whether a country instance from the API is not a valid country name. 
+Erroneous observations will be removed from the spatial representation of the data.
+
+```{r}
+country_check <- tab_merged$name[!(tab_merged$name %in% unique(data$country))]
+
+if (length(country_check) == 0) {
+  print("No invalid countries.")
+} else {
+  print("The following countries are not valid. Please contact the package authors.")
+  print(country_check)
+}
+```
+
+
+```{r, fig.showtext=TRUE, out.width = '75%'}
+labels <- sprintf("%s: %g users", tab_merged$name, tab_merged$Freq) |>
+  lapply(htmltools::HTML)
+
+leaflet::leaflet(tab_merged) |>
+  leaflet::addProviderTiles(providers$CartoDB.Positron) |>
+  leaflet::addCircleMarkers(lng = ~longitude, lat = ~latitude, 
+                   radius = sqrt(tab_merged$Freq) * 3,
+                   color = "#69a341",
+                   fillOpacity = 0.5,
+                   label = labels,
+                   labelOptions = leaflet::labelOptions(fontFamily = "Poppins",
+                                               textsize = "20px")
+                   )
+```
+
+<br><br><br>
+
+### User engagement by country
+The metric of the ratio of accepted and finished challenges is used to describe the 
+level of engagement and completion rates of users over all challenges by countries.
+
+The ratio of accepted and finished challenges is given by $\frac{\text{Number of finished challenges}}{\text{Number of accepted challenges}}$.
+
+
+```{r, fig.showtext=TRUE, out.width = '75%'}
+accepted <- climate.campaigneRs::get_subset(data, "\\.accepted")[,-1]
+finished <- climate.campaigneRs::get_subset(data, "\\.finished")[,-1]
+
+accepted <- accepted[,-c(1:7)]
+finished <- finished[,-c(1:7)]
+
+accepted[!is.na(accepted)] <- 1
+accepted[is.na(accepted)] <- 0
+
+finished[!is.na(finished)] <- 1
+finished[is.na(finished)] <- 0
+
+finished <- finished |>
+   mutate_all(as.numeric)
+
+accepted <- accepted |>
+   mutate_all(as.numeric)
+
+
+data$finished <- rowSums(finished)
+data$accepted <- rowSums(accepted)
+
+
+data_agg <- aggregate(cbind(finished, accepted) ~ country, data = data, FUN = sum)
+
+data_agg$ratio <- ifelse(data_agg$accepted > 0, data_agg$finished / data_agg$accepted, 0)
+
+tab_merged <- merge(countries, data_agg, by.x = "name", by.y = "country")
+
+
+labels <- sprintf("%s: %g %%", tab_merged$name, round(tab_merged$ratio * 100, 1)) |>
+  lapply(htmltools::HTML)
+
+leaflet::leaflet(tab_merged) |>
+  leaflet::addProviderTiles(providers$CartoDB.Positron) |>
+  leaflet::addCircleMarkers(lng = ~longitude, lat = ~latitude,
+                   radius = sqrt(tab_merged$ratio * 100) * 3,
+                   color = "#69a341",
+                   fillOpacity = 0.5,
+                   label = labels,
+                   labelOptions = leaflet::labelOptions(fontFamily = "Poppins",
+                                               textsize = "20px")
+                   )
+```
+
+<br><br><br>
+
+### Overview of optional variables used to calcualte the carbon footprint
+
+```{r, fig.showtext=TRUE}
+# nur für Type "select"
+
+from <- "numberOfPortableElectricHeatersKey"
+to <- "electricConsumptionForHeatingKey"
+
+vars <- colnames(data)[which(colnames(data) == from):which(colnames(data) == to)]
+uv <- user_values[user_values$key %in% vars, ]
+uv <- uv[uv$type == "select", ]
+
+vars <- intersect(vars, uv$key)
+tabs <- c()
+
+for (i in 1:length(vars)) {
+  # factor vars
+  cols <- colnames(uv[uv$key == vars[i], ])[grepl("option[0-9]+Label", colnames(uv[uv$key == vars[i], ]))]
+  lvls <- unlist(uv[uv$key == vars[i], cols])
+  lvls <- lvls[lvls != ""]
+  
+  data[, vars[i]] <- factor(data[, vars[i]], levels = lvls)
+  
+  tab <- rbind(table(data[, vars[i]], useNA = "always"),
+             (table(data[, vars[i]], useNA = "always") / length(data[, vars[i]])) * 100)
+  tab <-  data.frame(tab, check.names = FALSE)
+
+  var <- colnames(tab)
+  grp <- rep(user_values[user_values$key == vars[i],]$label, ncol(tab))
+  tab <- data.frame(t(tab))
+  tab <- cbind(grp, var, tab)
+  row.names(tab) <- NULL
+  
+  tab$X2 <- round(tab$X2, 1)
+  tabs <- rbind(tabs, tab)
+
+}
+
+assign_group_rows <- function(x) {
+  unique_grps <- unique(tabs$grp)
+  
+  for (g in 1:length(unique_grps)) {
+    starts <- min(which(tabs$grp == unique_grps[g]))
+    ends <- max(which(tabs$grp == unique_grps[g]))
+    
+    x <- kableExtra::group_rows(x, unique_grps[g], starts, ends,
+                    label_row_css = paste0("background-color: ", "#69a341",
+                                           "; color: #F1F1F1;")
+                    )
+    }
+    x
+}
+
+names(tabs)[2] <- " "
+
+tabs |>
+  dplyr::mutate(
+         n = X1,
+         "%" = formattable::color_bar("#69a341")(X2)) |>
+  dplyr::select(!c(grp, X1, X2)) |>
+  kableExtra::kable("html", escape = FALSE) |>
+  kableExtra::kable_styling("hover", full_width = FALSE) |>
+  assign_group_rows()
+```
+
+<br><br><br>
+
+# Challenges
+
+Challenges are aggregated when the title, category and duration are identical.
+
+The following count variables are available for each challenge: 
+
+- `accepted`: Number of users who accepted the challenge
+- `finished`: Number of users who finished the challenge
+- `rejected`: Number of users who rejected the challenge; omitted from table
+- `success`: Number of users who **successfully** finished the challenge, extracted from `Yes` answers from questions "Were you successful in completing this challenge?"
+- `fail`: Number of users who **failed** to finish the challenge, extracted from `No` answers from questions "Were you successful in completing this challenge?"
+- `open`: Difference between `accepted` and `finished`
+- `diff`: Difference between `finished`, `success` and `fail`
+
+<br>
+
+```{r}
+if (params$shiny) { 
+  shiny::fluidPage(
+    selectInput("gender", label = "Filter gender:",
+              choices = levels(data$gender), multiple = TRUE),
+
+    selectInput("age", label = "Filter age:",
+                choices = levels(data$age), multiple = TRUE),
+  
+    selectInput("country", label = "Filter country:",
+                choices = sort(unique(data$country)), multiple = TRUE),
+  
+    selectInput("education", label = "Filter education:",
+                choices = levels(data$education), multiple = TRUE),
+  
+    selectInput("occupation", label = "Filter occupation:",
+                choices = levels(data$occupation), multiple = TRUE)
+  )
+}
+```
+
+```{r}
+df <- climate.campaigneRs::get_subset(data, "\\.accepted|\\.rejected|\\.finished|\\.success")
+```
+
+
+```{r}
+if (params$shiny) {
+  df <- data
+  df_filtered <- reactive({
+  
+  if (!is.null(input$gender)) {
+    df <- subset(df, gender %in% input$gender)
+  }
+  if (!is.null(input$age)) {
+    df <- subset(df, age %in% input$age)
+  }
+  if (!is.null(input$country)) {
+    df <- subset(df, country %in% input$country)
+  }
+  if (!is.null(input$education)) {
+    df <- subset(df, education %in% input$education)
+  }
+  if (!is.null(input$occupation)) {
+    df <- subset(df, occupation %in% input$occupation)
+  }
+    climate.campaigneRs::aggregate_challenges(df, challenges)
+  })
+}
+
+
+```
+
+
+```{r, fig.showtext=TRUE}
+if (params$shiny) {
+  filtered_table <- DT::renderDataTable({
+  DT::datatable(df_filtered(),
+          extensions = "Buttons",
+          options = list(dom = "Blfrtip",
+                         buttons = c("copy", "csv", "excel", "pdf")
+                         ),
+          filter = list(position = "top", clear = TRUE),
+          selection = "multiple",
+          rownames = FALSE,
+          escape = FALSE
+          )
+    })
+  filtered_table
+} else {
+  DT::datatable(aggregate_challenges(data, challenges),
+                extensions = "Buttons",
+                options = list(dom = "Blfrtip",
+                               buttons = c("copy", "csv", "excel", "pdf")
+                               ),
+                filter = list(position = "top", clear = TRUE),
+                selection = "multiple",
+                rownames = FALSE,
+                escape = FALSE
+                )
+}
+
+```
+
+<br><br><br>
+
+## Top 10 challenges according to successful completions
+
+
+```{r Top10-challenges, fig.showtext=TRUE}
+# TOP 10 challenges and find interesting questions
+challenges_df <- aggregate_challenges(data, challenges)
+
+top10 <- challenges_df[with(challenges_df, order(-success)),][1:10,]
+top10$title <- factor(top10$title, levels = top10$title[order(top10$success)])
+
+
+ggplot(top10, aes(x = title, y = success)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(top10$success) * 1.1)) +
+  scale_x_discrete(limits = levels(top10$title), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = success), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize - 1, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+``` 
+
+<br><br><br>
+
+<!-- ### Cumulative sum of successful completions -->
+
+```{r Top10_successful-completions, fig.showtext=TRUE, fig.width=3.5, fig.height=2.5, eval=FALSE}
+if (!params$shiny) {
+  finished <- climate.campaigneRs::get_subset(data, "\\.finished")[,-c(2:7)]
+  success <- climate.campaigneRs::get_subset(data, "\\.success")[, -c(2:7)]
+  
+  finished_long <- finished |>
+    tidyr::pivot_longer(-uid)
+  
+  finished_long$challenge <- gsub("challenges\\.", "", finished_long$name)
+  finished_long$challenge <- gsub("\\..*", "", finished_long$challenge)
+  finished_long <- subset(finished_long, select = -name)
+  
+  success_long <- success |>
+    tidyr::pivot_longer(-uid)
+  
+  success_long$challenge <- gsub("challenges\\.", "", success_long$name)
+  success_long$challenge <- gsub("\\..*", "", success_long$challenge)
+  success_long <- subset(success_long, select = -name)
+  
+  df <- merge(finished_long, success_long, by = c("uid", "challenge"))
+  
+  df <- df[df$value.y %in% "Yes", ]
+  
+  df <- na.omit(df)
+  df$value.y[df$value.y == "Yes"] <- 1
+  df$value.y <- as.numeric(df$value.y)
+  df$value.x <- as.Date(df$value.x)
+  
+  df <- df[df$challenge %in% challenges[challenges$title %in% top10$title, "id"], ]
+  df <- aggregate(df$value.y, by = list(df$value.x, df$challenge), FUN = sum)
+  
+  df_cumsum <- df |>
+    group_by(Group.2) |>
+    arrange(Group.1) |>
+    mutate(cs = cumsum(x)) |>
+    ungroup()
+  
+  df_cumsum <- merge(df_cumsum, challenges[challenges$id %in% df_cumsum$Group.2, 1:2], by.x = "Group.2", by.y = "id")
+  df_cumsum$title <- factor(df_cumsum$title, levels = top10$title)
+  
+  str_wrap_factor <- function(x, ...) {
+    levels(x) <- str_wrap(levels(x), ...)
+    x
+  }
+  
+  df_cumsum |>
+    ggplot(aes(x = Group.1, y = cs, group = title, color = str_wrap_factor(title, 20))) +
+    geom_line() +
+    scale_x_date(date_labels = "%d.%m.%Y", date_breaks = "2 weeks") +
+    theme_classic() +
+    xlab("") +
+    ylab("") +
+    theme(text = element_text(size = textsize - 2, family = "poppins"),
+          plot.title = element_text(size = textsize - 2, vjust = 3),
+          axis.text.x = element_text(angle = 90, vjust = 0.5),
+          legend.title = element_blank())
+}
+
+
+```
+
+
+<br><br><br>
+
+## Follow up questions to the top 10 challenges
+For each of the top 10 challenges a follow up question is selected manually.
+The structure of follow up questions varies between questions. 
+This section needs to be updated by hand if the top 10 challenges change.
+Setting `echo = TRUE` in `render_report()`shows a sample that identifies a follow up
+question.
+
+```{r, eval=FALSE}
+# Example for identify interesting follow up question for challenge
+# "Don't use your car for the next 24 hours"
+c <- challenges[challenges$title %in% "Don't use your car for the next 24 hours", ]
+View(c)
+
+c$questions.3.question
+key <- c$questions.3.userValueId # this is the key that is used to extract the values in "data"
+data[, key]
+```
+
+<br>
+
+### 1. Don't use your car for the next 24 hours
+##### What did you use instead of your personal vehicle?
+```{r Top10_1_mobility_001_success_2, fig.showtext=TRUE}
+tab <- table(data$mobility_001_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+```
+
+<br><br><br>
+
+### 2. Active transport only - tomorrow!
+##### Which active travel mode of transport did you choose?
+```{r Top10_2_mobility_002_success_2, fig.showtext=TRUE}
+
+tab <- table(data$mobility_002_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+```
+
+<br><br><br>
+
+### 3. Set your dishwasher to eco mode
+##### How many times a week do you usually use your dishwasher?
+```{r Top10_3_dishwasher_to_eco_mode_challenge_start_1, fig.showtext=TRUE}
+tab <- table(data$`dishwasher to eco mode challenge start 1`)
+tab <- as.data.frame(tab)
+
+bins <- c(1, 3, 6, 9, 20)
+
+tab$Var1 <- as.numeric(as.character(tab$Var1))
+tab$bin <- cut(tab$Var1, breaks = bins, labels = c("1-3 times per week", "4-6 times per week", 
+                                                   "7-9 times per week", "10-20 times per week"), 
+               include.lowest = TRUE)
+
+tab <- aggregate(tab$Freq, by = list(tab$bin), FUN = sum)
+names(tab) <- c("Var1", "Freq")
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = rev(levels(tab$Var1)), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+```
+
+<br><br><br>
+
+### 4. Spare your laundry from the dryer for 1 week
+##### How many times a week do you usually use a tumble dryer?
+```{r Top10_4_dryerUsesPerWeek, fig.showtext=TRUE}
+tab <- table(data$dryerUsesPerWeek)
+tab <- as.data.frame(tab)
+
+bins <- c(-1, 0, 2, 5, 8)
+
+tab$Var1 <- as.numeric(as.character(tab$Var1))
+tab$bin <- cut(tab$Var1, breaks = bins, labels = c("0 times per week", "1-2 times per week", 
+                                                   "3-5 times per week", "6-8 times per week"), 
+               include.lowest = TRUE)
+
+tab <- aggregate(tab$Freq, by = list(tab$bin), FUN = sum)
+names(tab) <- c("Var1", "Freq")
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = rev(levels(tab$Var1)), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+
+```
+
+<br><br><br>
+
+### 5. Make today a no meat day
+##### What did you eat instead of meat products?
+```{r Top10_5_diet_003_success_2, fig.showtext=TRUE}
+
+tab <- table(data$diet_003_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+
+```
+
+<br><br><br>
+
+### 6. Shower with a stopwatch next week
+##### How long are your showers normally (in minutes)?
+```{r Top10_6_shower_duration, fig.showtext=TRUE}
+
+tab <- table(data$`shower duration`)
+tab <- as.data.frame(tab)
+
+bins <- c(0, 4, 10, 15, Inf)
+
+tab$Var1 <- as.numeric(as.character(tab$Var1))
+tab$bin <- cut(tab$Var1, breaks = bins, labels = c("less than 5 mins", "5-10 mins", 
+                                                   "11-15 mins", "more than 15mins"), 
+               include.lowest = TRUE)
+
+tab <- aggregate(tab$Freq, by = list(tab$bin), FUN = sum)
+names(tab) <- c("Var1", "Freq")
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = rev(levels(tab$Var1)), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+
+
+```
+
+<br><br><br>
+
+### 7. Unplug unused electrical appliances for two weeks
+##### Please select the most relevant option that led to your success with this challenge: 
+```{r Top10_7_energy_002_success_2, fig.showtext=TRUE}
+
+tab <- table(data$energy_002_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+```
+
+<br><br><br>
+
+### 8. Recycle some rubbish
+##### Do you already dispose of all of your recycable rubbish correctly?
+```{r Top10_8_waste_002_success_2, fig.showtext=TRUE}
+
+tab <- table(data$waste_002_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341", width = 0.6) +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+```
+
+<br><br><br>
+
+### 9. Try something fun that doesn‘t require electricity
+##### Please select the most relevant option that led to your success with this challenge: 
+```{r Top10_9_energy_008_success_2, fig.showtext=TRUE}
+
+tab <- table(data$energy_008_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+```
+
+
+<br><br><br>
+
+### 10. Set your washing machine to eco mode
+##### Please select the most relevant option that led to your success with this challenge: 
+```{r Top10_10_energy_006_success_2, fig.showtext=TRUE}
+# No response to: How many times a week do you usually use your washing machine?
+tab <- table(data$energy_006_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+```
+
+
