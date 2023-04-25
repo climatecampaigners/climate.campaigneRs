@@ -71,7 +71,7 @@ The key functions in this package are
 The R package will be made available on GitHub. 
 
 ```{r, echo=TRUE, eval=FALSE}
-devtools::install_github("TBA/climate.campaigneRs")
+devtools::install_github("climatecampaigners/climate.campaigneRs")
 ```
 
 
