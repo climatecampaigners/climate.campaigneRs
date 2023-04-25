@@ -376,7 +376,7 @@ leaflet::leaflet(tab_merged) |>
 
 <br><br><br>
 
-### Overview of optional variables used to calcualte the carbon footprint
+### Overview of optional variables used to calculate the carbon footprint
 
 ```{r, fig.showtext=TRUE}
 # nur für Type "select"
