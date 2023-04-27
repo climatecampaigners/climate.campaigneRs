@@ -19,8 +19,33 @@ get_data <- function(challenges) {
   tryCatch({
     data <- read.csv(url, check.names = FALSE)
     # temp fix:
-    data <- as.data.frame(apply(data, 2, function(x) replace(x, x == "Ingen", "No")))
-    data <- as.data.frame(apply(data, 2, function(x) replace(x, x == "Ja", "Yes")))
+    #data <- as.data.frame(apply(data, 2, function(x) replace(x, x == "Ingen", "No")))
+    #data <- as.data.frame(apply(data, 2, function(x) replace(x, x == "Ja", "Yes")))
+
+    swedish_col <- colnames(data)[sapply(data, function(x) any(grepl("^(Ingen|Ja)$", x)))]
+
+    data[swedish_col] <- sapply(data[swedish_col], function(x) replace(x, x == "Ingen", "No"))
+    data[swedish_col] <- sapply(data[swedish_col], function(x) replace(x, x == "Ja", "Yes"))
+
+    # old income:
+    # 5000: Less than 10 000 €
+    # 15000: 10,000 - 20,000 €
+    # 25000: 20,000 - 30,000 €
+    # 35000: 30,000 - 40,000 €
+    # 45000: 40,000 - 50,000 €
+    # 55000: More than 50,000 €
+
+    # new income (default):
+    # 1: Less than 30 000 EUR
+    # 2: 30 000 EUR - 40 000 EUR
+    # 3: 40 000 EUR - 52 000 EUR
+    # 4: More than 52 000 EUR
+    # 5: I don’t want to say
+
+    data[data$income %in% c(5000, 15000, 25000), ]$income <- 1
+    data[data$income %in% c(35000), ]$income <- 2
+    data[data$income %in% c(45000), ]$income <- 3
+    data[data$income %in% c(55000), ]$income <- 4
 
     data$country[data$country == "Turkey"] <- "T\U00FCrkiye"
     data$city[data$city == ""] <- NA_character_
@@ -29,7 +54,7 @@ get_data <- function(challenges) {
     data[data == ""] <- NA
 
     stopifnot(all(c("18 - 29", "30 - 39", "50 - 59", "40 - 49", "60 years or older",
-                                      "Under 18") %in% unique(data$age)))
+                    "Under 18") %in% unique(data$age)))
 
     data$age <- factor(data$age, levels = c("Under 18", "18 - 29", "30 - 39",
                                             "40 - 49", "50 - 59", "60 years or older"))
@@ -48,12 +73,12 @@ get_data <- function(challenges) {
                                                         "Some secondary school (High School)",
                                                         "Completed secondary school (High School)",
                                                         "A post-secondary school technical qualification",
-                                                         "Completed undergraduate degree",
+                                                        "Completed undergraduate degree",
                                                         "Completed postgraduate education"))
 
 
     stopifnot(all(c("Employed", "Student", "Home Parent", "Self-employed", "Unemployed", "Retired") %in%
-                unique(data$occupation)))
+                    unique(data$occupation)))
 
     data$occupation <- factor(data$occupation, levels = c("Employed", "Student",
                                                           "Unemployed", "Home Parent",
@@ -93,7 +118,45 @@ get_challenges <- function() {
     challenges <- read.csv("https://climate-campaigners.app/api/challenges", check.names = FALSE)
     challenges$title <- gsub("^\"|\"$", "", challenges$title)
     challenges$category <- as.factor(challenges$category)
+    challenges$description <- gsub("^\"|\"$", "", challenges$description)
+
+    challenges$len_description <- nchar(challenges$description)
+
+    bins <- c(0, 200, 300, 400, 500, Inf)
+
+    challenges$len_description_bin <- cut(challenges$len_description, breaks = bins,
+                                          labels = c("0-200",
+                                                     "201-300",
+                                                     "301-400",
+                                                     "401-500",
+                                                     "more than 500"),
+                                          include.lowest = TRUE)
+
+    domains <- c()
+    for (i in 1:nrow(challenges)) {
+      ix <- which(challenges[i,] %in% "Were you successful in completing this challenge?")
+      domains <- c(domains, ifelse(length(ix) > 0, challenges[i, (ix + 1)], "other"))
+    }
+
+    domains <- gsub("_.*", "", domains)
+    domains[domains == "weFairChallengeGeneralSuccess"] <- "other"
+
+    challenges$domains <- domains
+
+    # special case for old challenges
+    for (i in 1:nrow(challenges)) {
+      if (challenges$category[i] != "Other" & challenges$domains[i] == "other") {
+        if (challenges$category[i] == "Food") {
+          challenges$domains[i] <- "diet"
+        } else if (challenges$category[i] == "Mobility") {
+          challenges$domains[i] <- "mobility"
+        }
+
+      }
+    }
+
     challenges
+
 
   }, error = function(e) {
     print(paste("Error:", e))
@@ -181,7 +244,7 @@ get_subset <- function(data, pattern = "\\.accepted") {
   #stopifnot(pattern %in% c("\\.accepted", "\\.rejected", "\\.finished", "\\.interaction", "\\.CO2avoided", "\\.success"))
   df <- data[, grepl(pattern, colnames(data))]
   df <- cbind(data$uid, data$gender, data$age, data$country, data$income, data$education,
-               data$occupation, df)
+              data$occupation, df)
   #df <- cbind(data$uid,  df)
   names(df)[1:7] <- c("uid", "gender", "age", "country", "income", "education", "occupation")
   df
