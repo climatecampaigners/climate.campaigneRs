@@ -14,7 +14,7 @@
 #' @import DT
 #' @param out_dir A character vector of full directory name (default: \code{\link[base:tempdir]{base::tempdir()}}).
 #' @param write_excel A logical that indicates if the API response should be written to an Excel file (default: \code{FALSE}).
-#' @param echo A logical that indicates if code should be prevented from appearing in the final file (default: FALSE, no code).
+#' @param echo A logical that indicates if code should be prevented from appearing in the final file (default: \code{FALSE}, no code).
 #' @param shiny A logical that indicates if the report should rendered as shiny or not (default: FALSE).
 #' @param saveFig A logical that indicates if the plots should be saved as png (default: TRUE).
 #' @return No return value. Called for side effects.
@@ -38,7 +38,7 @@ render_report <- function(out_dir = tempdir(), write_excel = FALSE, echo = FALSE
                                     echo = echo,
                                     out_dir = out_dir,
                                     saveFig = saveFig),
-                      )
+    )
 
   }
 

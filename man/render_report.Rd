@@ -17,7 +17,7 @@ render_report(
 
 \item{write_excel}{A logical that indicates if the API response should be written to an Excel file (default: \code{FALSE}).}
 
-\item{echo}{A logical that indicates if code should be prevented from appearing in the final file (default: FALSE, no code).}
+\item{echo}{A logical that indicates if code should be prevented from appearing in the final file (default: \code{FALSE}, no code).}
 
 \item{shiny}{A logical that indicates if the report should rendered as shiny or not (default: FALSE).}
 

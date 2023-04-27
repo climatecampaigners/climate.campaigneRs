@@ -68,10 +68,10 @@ The key functions in this package are
 
 # Installation
 
-The R package will be made available on GitHub. 
+The R package is available on GitHub. 
 
 ```{r, echo=TRUE, eval=FALSE}
-devtools::install_github("climatecampaigners/climate.campaigneRs")
+devtools::install_github("TBA/climate.campaigneRs")
 ```
 
 
@@ -79,7 +79,7 @@ devtools::install_github("climatecampaigners/climate.campaigneRs")
 
 # Access the database
 
-Accessing and preparing the data involves these steps:
+Accessing and preparing the data by the get_\*() functions involves these steps:
 
 - Handling empty strings and NA
 - Error handling 
@@ -376,7 +376,7 @@ leaflet::leaflet(tab_merged) |>
 
 <br><br><br>
 
-### Overview of optional variables used to calculate the carbon footprint
+### Overview of optional variables used to calcualte the carbon footprint
 
 ```{r, fig.showtext=TRUE}
 # nur für Type "select"
