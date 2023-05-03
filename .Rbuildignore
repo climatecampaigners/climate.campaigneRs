@@ -7,3 +7,4 @@ inst/extdata/data.*
 ^LICENSE\.md$
 inst/extdata/test.R
 inst/extdata/rest.Rmd
+^README\.Rmd$

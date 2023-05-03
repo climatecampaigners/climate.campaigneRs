@@ -1,0 +1,36 @@
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+# climate.campaigneRs
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+Access CAMPAIGNers Data and Generate Report
+
+## Installation
+
+You can install the current version from [GitHub](https://github.com/)
+with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("climatecampaigners/climate.campaigneRs")
+```
+
+## Example
+
+The package contains functions to access the CAMPAIGNers API endpoints
+and generate a HTML or Shiny report.
+
+``` r
+library("climate.campaigneRs")
+```
+
+``` r
+render_report(out_dir = tempdir(), # specify path to a directory
+              write_excel = TRUE, # write a combined Excel file with all API data to out_dir 
+              echo = FALSE, # if TRUE: adds code to the output
+              shiny = TRUE, # renders the report in Shiny
+              saveFig = TRUE) # write figures to out_dir
+```
