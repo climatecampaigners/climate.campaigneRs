@@ -21,8 +21,10 @@ except id, start and end date are identical.
 Aggregate challenges
 }
 \examples{
+\donttest{
 challenges <- get_challenges()
 result <- get_data(challenges)
 data <- result$data
 aggregate_challenges(data, challenges)
+}
 }

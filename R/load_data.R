@@ -1,7 +1,13 @@
 
 #' Access data API
-#' @description If \code{challenges} is provided, it appends the variables "challenges.X.success"
-#' that indicate if a challenge with ID X was finished successfully ("Yes") or not ("No").
+#' @description If \code{challenges} is provided, it appends the variables
+#' \code{challenges.X.success}: indicate if a challenge with ID X was finished successfully ("Yes") or not ("No").
+#' \code{success}: Number of successful completed challenges for each user.
+#' \code{success_bin1}: Binary variable that indicates if a user completed one or more challenges.
+#' \code{success_bin2}: Binary variable that indicates if a user completed two or more challenges.
+#' \code{success_bin3}: Binary variable that indicates if a user completed three or more challenges.
+#'
+#'
 #' @param challenges Optional data frame returned from \code{\link[climate.campaigneRs:get_challenges]{climate.campaigneRs::get_challenges()}}.
 #'
 #' @return Data frame from API endpoint.
@@ -19,9 +25,6 @@ get_data <- function(challenges) {
   tryCatch({
     data <- read.csv(url, check.names = FALSE)
     # temp fix:
-    #data <- as.data.frame(apply(data, 2, function(x) replace(x, x == "Ingen", "No")))
-    #data <- as.data.frame(apply(data, 2, function(x) replace(x, x == "Ja", "Yes")))
-
     swedish_col <- colnames(data)[sapply(data, function(x) any(grepl("^(Ingen|Ja)$", x)))]
 
     data[swedish_col] <- sapply(data[swedish_col], function(x) replace(x, x == "Ingen", "No"))
@@ -302,6 +305,20 @@ add_success <- function(data, challenges) {
 
   l <- list(data, success_list, missing)
   names(l) <- c("data", "success_list", "missing")
+  success_vars <- grep("\\.success$", names(l$data), value = TRUE)
+  success_df <- l$data[, success_vars]
+  success_df[success_df == "Yes"] <- 1
+  success_df[success_df == "No"] <- 0
+
+  success_df <- apply(success_df, 2, as.numeric)
+
+  success <- rowSums(success_df, na.rm = TRUE)
+
+  l$data$success <- success
+  l$data$success_bin1 <- ifelse(l$data$success >= 1, 1, 0)
+  l$data$success_bin2 <- ifelse(l$data$success >= 2, 1, 0)
+  l$data$success_bin3 <- ifelse(l$data$success >= 3, 1, 0)
+
   l
 }
 
@@ -353,10 +370,13 @@ create_df <- function(x) {
 #' @export
 #'
 #' @examples
+#' \donttest{
 #' challenges <- get_challenges()
 #' result <- get_data(challenges)
 #' data <- result$data
 #' aggregate_challenges(data, challenges)
+#' }
+
 aggregate_challenges <- function(data, challenges){
   challenge <- NULL
   df <- get_subset(data, "\\.accepted|\\.rejected|\\.finished|\\.success")

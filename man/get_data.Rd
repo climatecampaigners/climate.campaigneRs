@@ -15,8 +15,12 @@ Data frame from API endpoint.
 Data frame from API endpoint.
 }
 \description{
-If \code{challenges} is provided, it appends the variables "challenges.X.success"
-that indicate if a challenge with ID X was finished successfully ("Yes") or not ("No").
+If \code{challenges} is provided, it appends the variables
+\code{challenges.X.success}: indicate if a challenge with ID X was finished successfully ("Yes") or not ("No").
+\code{success}: Number of successful completed challenges for each user.
+\code{success_bin1}: Binary variable that indicates if a user completed one or more challenges.
+\code{success_bin2}: Binary variable that indicates if a user completed two or more challenges.
+\code{success_bin3}: Binary variable that indicates if a user completed three or more challenges.
 }
 \examples{
 \donttest{
