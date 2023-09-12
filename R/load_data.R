@@ -1,5 +1,53 @@
-
 #' Access data API
+#'
+#' @importFrom httr modify_url GET content
+#' @importFrom utils read.csv tail
+#' @importFrom plyr rbind.fill
+#' @return Modified Data frame from API endpoint.
+get_data_api <- function() {
+  base_url <- "https://climate-campaigners.app/api/data"
+  page_size <- 1000
+  cursor <- NULL
+  data <- list()
+
+  while (TRUE) {
+    # Construct the API URL with the current cursor and page size
+    url <- modify_url(
+      base_url,
+      query = list(
+        cursor = cursor,
+        pageSize = page_size
+      )
+    )
+
+    response <- GET(url)
+
+    if (response$status_code != 500) {
+
+      response_data <- content(response, "text", encoding = "UTF-8")
+      current_data <- read.csv(text = response_data)
+
+      data <- append(data, list(current_data))
+
+      cursor <- tail(current_data$uid, n = 1)
+
+      if (length(current_data$uid) < page_size) {
+        break
+      }
+    } else {
+      # If the status code is 500, there are no more records to return
+      break
+    }
+  }
+
+  # Combine all the data frames into one if needed
+  final_data <- do.call(rbind.fill, data)
+  final_data
+}
+
+
+
+#' Access data API and modify data
 #' @description If \code{challenges} is provided, it appends the variables
 #' \code{challenges.X.success}: indicate if a challenge with ID X was finished successfully ("Yes") or not ("No").
 #' \code{success}: Number of successful completed challenges for each user.
@@ -13,17 +61,15 @@
 #' @return Data frame from API endpoint.
 #' @export
 #' @importFrom utils read.csv
-#' @return Data frame from API endpoint.
+#' @return Modified Data frame from API endpoint.
 #'
 #' @examples
 #' \donttest{
 #' data <- get_data()
 #' }
 get_data <- function(challenges) {
-  url <- "https://climate-campaigners.app/api/data?pageSize=1000000"
-
   tryCatch({
-    data <- read.csv(url, check.names = FALSE)
+    data <- get_data_api()
     # temp fix:
     swedish_col <- colnames(data)[sapply(data, function(x) any(grepl("^(Ingen|Ja)$", x)))]
 

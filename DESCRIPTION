@@ -31,6 +31,8 @@ Imports:
     stringr,
     tidyr,
     sysfonts,
-    scales
+    scales,
+    plyr,
+    httr
 RoxygenNote: 7.2.3
 Depends: R (>= 4.2.0)

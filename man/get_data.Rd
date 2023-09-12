@@ -2,7 +2,7 @@
 % Please edit documentation in R/load_data.R
 \name{get_data}
 \alias{get_data}
-\title{Access data API}
+\title{Access data API and modify data}
 \usage{
 get_data(challenges)
 }
@@ -12,7 +12,7 @@ get_data(challenges)
 \value{
 Data frame from API endpoint.
 
-Data frame from API endpoint.
+Modified Data frame from API endpoint.
 }
 \description{
 If \code{challenges} is provided, it appends the variables

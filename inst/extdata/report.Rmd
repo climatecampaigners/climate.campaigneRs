@@ -659,7 +659,7 @@ data[, key]
 
 ### 1. Don't use your car for the next 24 hours
 ##### What did you use instead of your personal vehicle?
-```{r Top10_1_mobility_001_success_2, fig.showtext=TRUE}
+```{r Top10_1_mobility_001_success_2, fig.showtext=TRUE, eval=FALSE}
 tab <- table(data$mobility_001_success_2)
 tab <- as.data.frame(tab)
 tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
@@ -680,7 +680,7 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 ### 2. Active transport only - tomorrow!
 ##### Which active travel mode of transport did you choose?
-```{r Top10_2_mobility_002_success_2, fig.showtext=TRUE}
+```{r Top10_2_mobility_002_success_2, fig.showtext=TRUE, eval=FALSE}
 
 tab <- table(data$mobility_002_success_2)
 tab <- as.data.frame(tab)
@@ -703,7 +703,7 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 ### 3. Set your dishwasher to eco mode
 ##### How many times a week do you usually use your dishwasher?
-```{r Top10_3_dishwasher_to_eco_mode_challenge_start_1, fig.showtext=TRUE}
+```{r Top10_3_dishwasher_to_eco_mode_challenge_start_1, fig.showtext=TRUE, eval=FALSE}
 tab <- table(data$`dishwasher to eco mode challenge start 1`)
 tab <- as.data.frame(tab)
 
@@ -734,7 +734,7 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 ### 4. Spare your laundry from the dryer for 1 week
 ##### How many times a week do you usually use a tumble dryer?
-```{r Top10_4_dryerUsesPerWeek, fig.showtext=TRUE}
+```{r Top10_4_dryerUsesPerWeek, fig.showtext=TRUE, eval=FALSE}
 tab <- table(data$dryerUsesPerWeek)
 tab <- as.data.frame(tab)
 
@@ -766,7 +766,7 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 ### 5. Make today a no meat day
 ##### What did you eat instead of meat products?
-```{r Top10_5_diet_003_success_2, fig.showtext=TRUE}
+```{r Top10_5_diet_003_success_2, fig.showtext=TRUE, eval=FALSE}
 
 tab <- table(data$diet_003_success_2)
 tab <- as.data.frame(tab)
@@ -790,7 +790,7 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 ### 6. Shower with a stopwatch next week
 ##### How long are your showers normally (in minutes)?
-```{r Top10_6_shower_duration, fig.showtext=TRUE}
+```{r Top10_6_shower_duration, fig.showtext=TRUE, eval=FALSE}
 
 tab <- table(data$`shower duration`)
 tab <- as.data.frame(tab)
@@ -824,7 +824,7 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 ### 7. Unplug unused electrical appliances for two weeks
 ##### Please select the most relevant option that led to your success with this challenge: 
-```{r Top10_7_energy_002_success_2, fig.showtext=TRUE}
+```{r Top10_7_energy_002_success_2, fig.showtext=TRUE, eval=FALSE}
 
 tab <- table(data$energy_002_success_2)
 tab <- as.data.frame(tab)
@@ -847,7 +847,7 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 ### 8. Recycle some rubbish
 ##### Do you already dispose of all of your recycable rubbish correctly?
-```{r Top10_8_waste_002_success_2, fig.showtext=TRUE}
+```{r Top10_8_waste_002_success_2, fig.showtext=TRUE, eval=FALSE}
 
 tab <- table(data$waste_002_success_2)
 tab <- as.data.frame(tab)
@@ -870,7 +870,7 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 ### 9. Try something fun that doesn‘t require electricity
 ##### Please select the most relevant option that led to your success with this challenge: 
-```{r Top10_9_energy_008_success_2, fig.showtext=TRUE}
+```{r Top10_9_energy_008_success_2, fig.showtext=TRUE, eval=FALSE}
 
 tab <- table(data$energy_008_success_2)
 tab <- as.data.frame(tab)
@@ -894,7 +894,7 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 ### 10. Set your washing machine to eco mode
 ##### Please select the most relevant option that led to your success with this challenge: 
-```{r Top10_10_energy_006_success_2, fig.showtext=TRUE}
+```{r Top10_10_energy_006_success_2, fig.showtext=TRUE, eval=FALSE}
 # No response to: How many times a week do you usually use your washing machine?
 tab <- table(data$energy_006_success_2)
 tab <- as.data.frame(tab)
