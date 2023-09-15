@@ -157,14 +157,14 @@ if (params$write_excel) {
 Users that never interacted with the app are removed from the dataset. 
 This is the case when all values that require input from users are missing.
 
-```{r NA-pattern, fig.showtext=TRUE, fig.width=6, fig.height=4}
+```{r NA-pattern, fig.showtext=TRUE, fig.height=5, fig.width=7.5}
 # personal information
 
 from <- "uid"
 to <- "occupation"
 
 df <- data[, colnames(data)[which(colnames(data) == from):which(colnames(data) == to)]]
-g <- ggmice::plot_pattern(df, rotate = FALSE)
+g <- ggmice::plot_pattern(df, rotate = TRUE)
 g <- suppressMessages(
   g + theme(text = element_text(size = textsize), 
             axis.title.y = element_text(margin = margin(t = 0, r = 5, b = 0, l = 0)),
@@ -376,15 +376,34 @@ leaflet::leaflet(tab_merged) |>
 
 <br><br><br>
 
-### Overview of optional variables used to calcualte the carbon footprint
+### Overview of optional variables used to calculate the carbon footprint
 
 ```{r, fig.showtext=TRUE}
 # nur für Type "select"
+vars <- c(names(data)[grepl("weeklyMileage", names(data))],
+          "annualNumberOfFlyHours",
+          "annuallycarDistance",
+          "carType",
+          "carPassengers",
+          "passengerMicrocarMopedMotorcycle",
+          "numberOfPeopleInHouseholdKey",
+          "sizeOfFlatOrHouseKey",
+          "havingGreenElectricityContract",
+          "knowingHeatConsumptionInKwhPerYear",
+          "heatCOnsumptionInKWhPerYearKey",
+          "heatingSystemIsElectric",
+          "installedHeatingSystemElectricKey",
+          "knowingElectircityConsumptionPerYearWithoutCentralElectricHeatingKey",
+          "electircityConsumptionPerYearWithoutCentralElectricHeatingKey",
+          "dietType",
+          "foodQuantity",
+          "quantityOfPurchasedClothingChoices",
+          "shareOfSecondhandClothingChoices",
+          "quantityOfPurchasedManufacturedProductsChoices",
+          "shareOfSecondhandManufacutredProductsChoices",
+          "quantityOfServicesAndLeisureActivitiesChoices"
+          )
 
-from <- "numberOfPortableElectricHeatersKey"
-to <- "electricConsumptionForHeatingKey"
-
-vars <- colnames(data)[which(colnames(data) == from):which(colnames(data) == to)]
 uv <- user_values[user_values$key %in% vars, ]
 uv <- uv[uv$type == "select", ]
 

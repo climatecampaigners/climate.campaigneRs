@@ -25,7 +25,7 @@ get_data_api <- function() {
     if (response$status_code != 500) {
 
       response_data <- content(response, "text", encoding = "UTF-8")
-      current_data <- read.csv(text = response_data)
+      current_data <- read.csv(text = response_data, check.names = FALSE)
 
       data <- append(data, list(current_data))
 
