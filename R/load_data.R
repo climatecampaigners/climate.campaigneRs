@@ -294,7 +294,6 @@ get_subset <- function(data, pattern = "\\.accepted") {
   df <- data[, grepl(pattern, colnames(data))]
   df <- cbind(data$uid, data$gender, data$age, data$country, data$income, data$education,
               data$occupation, df)
-  #df <- cbind(data$uid,  df)
   names(df)[1:7] <- c("uid", "gender", "age", "country", "income", "education", "occupation")
   df
 }
@@ -313,14 +312,16 @@ get_subset <- function(data, pattern = "\\.accepted") {
 add_success <- function(data, challenges) {
   # 1. find variables that contain question for success
   idx <- c()
+  # challenge.X.success: combination of _success and challenges.X.finished (otherwise duplicates)
+
+
   for (i in 1:nrow(challenges)) {
-    if ("Were you successful in completing this challenge?" %in% challenges[i,]) {
-      idx <- rbind(idx, c(i, which(challenges[i,] %in% "Were you successful in completing this challenge?")))
+    if (any(grepl("_success$", challenges[i,]))) {
+      idx <- rbind(idx, c(i, which(grepl("_success$", challenges[i,]))))
     }
   }
 
   colnames(idx) <- c("row", "col")
-  idx[ ,2] <- idx[ ,2] + 1
   success_list <- c()
 
   for (i in 1:nrow(idx)) {
@@ -338,15 +339,25 @@ add_success <- function(data, challenges) {
   success_list <- as.data.frame(success_list)
 
   # 3. only keep success variables that are actually used (occur in user data)
-  success_list <- success_list[success_list$V2 %in% colnames(data), ]
+ # success_list <- success_list[success_list$V2 %in% colnames(data), ]
 
   rownames(success_list) <- NULL
 
   # 4. append "success" variable for each challenge
   for (i in 1:nrow(success_list)) {
-    s <- data[,success_list[i,]$V2]
+    if (success_list$V2[i] %in% colnames(data)) {
+
+      ch_id <- paste0("challenges.", success_list[i,]$V1, ".finished")
+
+      if (ch_id %in% names(data)) {
+        s <- ifelse(is.na(data[, ch_id]), NA, data[,success_list[i,]$V2])
+      } else {
+      s <- rep(NA, nrow(data))
+    }
+
     data <- cbind(data, s)
     names(data)[ncol(data)] <- paste0("challenges.", success_list[i,]$V1, ".success")
+    }
   }
 
   l <- list(data, success_list, missing)
@@ -426,6 +437,7 @@ create_df <- function(x) {
 aggregate_challenges <- function(data, challenges){
   challenge <- NULL
   df <- get_subset(data, "\\.accepted|\\.rejected|\\.finished|\\.success")
+
   # success:
   x <- df[, grepl("\\.success", colnames(df))]
   success <- colSums(x == "Yes", na.rm = TRUE)
@@ -438,6 +450,16 @@ aggregate_challenges <- function(data, challenges){
   names(x_df)[1] <- "challenge"
   x_df$challenge <- gsub("challenges\\.", "", x_df$challenge)
   x_df$challenge <- gsub("\\..*", "", x_df$challenge)
+
+  # group challenges (by title)
+  x_df <- merge(x_df, challenges[, c("id", "title")], by.x = "challenge", by.y = "id")
+
+  x_df <- x_df |>
+    dplyr::group_by(title) |>
+    dplyr::summarise(success = sum(success),
+                     fail = sum(fail), .groups = "drop") |>
+    dplyr::ungroup()
+
 
   # accepted finished rejected:
   accepted <- create_df(df[, grepl("\\.accepted", colnames(df))])
@@ -464,16 +486,12 @@ aggregate_challenges <- function(data, challenges){
                      rejected = sum(rejected), .groups = "drop") |>
     dplyr::ungroup()
 
-  success_df <- merge(x_df, challenges_subset, by.x = "challenge", by.y = "id")
-
-  # remove duplicates
-  success_df <- success_df[!duplicated(subset(success_df, select = -challenge)), ]
 
 
-  final_df <- merge(challenges_df, subset(success_df, select = -challenge),
-                    by = c("category", "title", "duration"), all.x = TRUE)
-  final_df$success[is.na(final_df$success)] <- 0
-  final_df$fail[is.na(final_df$fail)] <- 0
+  success_df <- merge(x_df, challenges_df, by.x = "title", by.y = "title")
+
+  final_df <- success_df
+
 
   final_df$open <- final_df$accepted - final_df$finished
   final_df$diff <- final_df$finished - final_df$success - final_df$fail
