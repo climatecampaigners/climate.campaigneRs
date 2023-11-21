@@ -129,25 +129,6 @@ cat('</div>')
 ```
 
 
-```{r}
-if (params$write_excel) {
-  out <- openxlsx::createWorkbook()
-
-  openxlsx::addWorksheet(out, "data")
-  openxlsx::addWorksheet(out, "user_values")
-  openxlsx::addWorksheet(out, "challenges")
-  openxlsx::addWorksheet(out, "weekly_assignments")
-  
-  openxlsx::writeData(out, sheet = "data", x = data)
-  openxlsx::writeData(out, sheet = "user_values", x = user_values)
-  openxlsx::writeData(out, sheet = "challenges", x = challenges)
-  openxlsx::writeData(out, sheet = "weekly_assignments", x = weekly_assignments)
-  
-  out_name <- paste0("data_", Sys.Date(), ".xlsx")
-  openxlsx::saveWorkbook(out, file.path(params$out_dir, out_name), overwrite = TRUE)
-
-}
-```
 <br>
 
 # Data validation
@@ -548,7 +529,10 @@ if (params$shiny) {
     })
   filtered_table
 } else {
-  DT::datatable(aggregate_challenges(data, challenges),
+  agg <- aggregate_challenges(data, challenges)
+  agg <- agg[agg$country == "All" & agg$city == "All", ]
+  agg <- agg[, !(names(agg) %in% c("country", "city"))]
+  DT::datatable(agg,
                 extensions = "Buttons",
                 options = list(dom = "Blfrtip",
                                buttons = c("copy", "csv", "excel", "pdf")
@@ -559,7 +543,6 @@ if (params$shiny) {
                 escape = FALSE
                 )
 }
-
 ```
 
 <br><br><br>
@@ -570,6 +553,8 @@ if (params$shiny) {
 ```{r Top10-challenges, fig.showtext=TRUE}
 # TOP 10 challenges and find interesting questions
 challenges_df <- aggregate_challenges(data, challenges)
+challenges_df <- challenges_df[challenges_df$country == "All" & challenges_df$city == "All", ]
+challenges_df <- challenges_df[, !(names(challenges_df) %in% c("country", "city"))]
 
 top10 <- challenges_df[with(challenges_df, order(-success)),][1:10,]
 top10$title <- factor(top10$title, levels = top10$title[order(top10$success)])
@@ -676,30 +661,9 @@ data[, key]
 
 <br>
 
-### 1. Don't use your car for the next 24 hours
-##### What did you use instead of your personal vehicle?
-```{r Top10_1_mobility_001_success_2, fig.showtext=TRUE, eval=FALSE}
-tab <- table(data$mobility_001_success_2)
-tab <- as.data.frame(tab)
-tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
-
-ggplot(tab, aes(x = Var1, y = Freq)) +
-  geom_bar(stat = "identity", fill = "#69a341") +
-  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
-  ylab("Number of successful completions") +
-  xlab("") +
-  theme_classic() +
-  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
-  theme(text = element_text(size = textsize, family = "poppins"),
-        plot.title = element_text(size = textsize, vjust = 3)) +
-  coord_flip()
-```
-
-<br><br><br>
-
-### 2. Active transport only - tomorrow!
+### 1. Active transport only - tomorrow!
 ##### Which active travel mode of transport did you choose?
-```{r Top10_2_mobility_002_success_2, fig.showtext=TRUE, eval=FALSE}
+```{r Top10_1_mobility_002_success_2, fig.showtext=TRUE}
 
 tab <- table(data$mobility_002_success_2)
 tab <- as.data.frame(tab)
@@ -718,11 +682,67 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
   coord_flip()
 ```
 
+
+
 <br><br><br>
 
-### 3. Set your dishwasher to eco mode
+### 2. Spare your laundry from the dryer for 1 week
+##### How many times a week do you usually use a tumble dryer?
+```{r Top10_2_dryerUsesPerWeek, fig.showtext=TRUE}
+tab <- table(data$dryerUsesPerWeek)
+tab <- as.data.frame(tab)
+
+bins <- c(-1, 0, 2, 5, 8)
+
+tab$Var1 <- as.numeric(as.character(tab$Var1))
+tab$bin <- cut(tab$Var1, breaks = bins, labels = c("0 times per week", "1-2 times per week", 
+                                                   "3-5 times per week", "6-8 times per week"), 
+               include.lowest = TRUE)
+
+tab <- aggregate(tab$Freq, by = list(tab$bin), FUN = sum)
+names(tab) <- c("Var1", "Freq")
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = rev(levels(tab$Var1)), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+
+```
+
+
+<br><br><br>
+
+### 3. Don't use your car for the next 24 hours
+##### What did you use instead of your personal vehicle?
+```{r Top10_3_mobility_001_success_2, fig.showtext=TRUE}
+tab <- table(data$mobility_001_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+```
+
+<br><br><br>
+
+### 4. Set your dishwasher to eco mode
 ##### How many times a week do you usually use your dishwasher?
-```{r Top10_3_dishwasher_to_eco_mode_challenge_start_1, fig.showtext=TRUE, eval=FALSE}
+```{r Top10_4_dishwasher_to_eco_mode_challenge_start_1, fig.showtext=TRUE}
 tab <- table(data$`dishwasher to eco mode challenge start 1`)
 tab <- as.data.frame(tab)
 
@@ -751,26 +771,18 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 <br><br><br>
 
-### 4. Spare your laundry from the dryer for 1 week
-##### How many times a week do you usually use a tumble dryer?
-```{r Top10_4_dryerUsesPerWeek, fig.showtext=TRUE, eval=FALSE}
-tab <- table(data$dryerUsesPerWeek)
+### 5. Try something fun that doesn‘t require electricity
+##### Please select the most relevant option that led to your success with this challenge: 
+```{r Top10_5_energy_008_success_2, fig.showtext=TRUE}
+
+tab <- table(data$energy_008_success_2)
 tab <- as.data.frame(tab)
-
-bins <- c(-1, 0, 2, 5, 8)
-
-tab$Var1 <- as.numeric(as.character(tab$Var1))
-tab$bin <- cut(tab$Var1, breaks = bins, labels = c("0 times per week", "1-2 times per week", 
-                                                   "3-5 times per week", "6-8 times per week"), 
-               include.lowest = TRUE)
-
-tab <- aggregate(tab$Freq, by = list(tab$bin), FUN = sum)
-names(tab) <- c("Var1", "Freq")
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
 
 ggplot(tab, aes(x = Var1, y = Freq)) +
   geom_bar(stat = "identity", fill = "#69a341") +
   scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
-  scale_x_discrete(limits = rev(levels(tab$Var1)), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
   ylab("Number of successful completions") +
   xlab("") +
   theme_classic() +
@@ -778,14 +790,84 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
   theme(text = element_text(size = textsize, family = "poppins"),
         plot.title = element_text(size = textsize, vjust = 3)) +
   coord_flip()
+```
 
+
+<br><br><br>
+
+### 6. Set your washing machine to eco mode
+##### Please select the most relevant option that led to your success with this challenge: 
+```{r Top10_6_energy_006_success_2, fig.showtext=TRUE}
+# No response to: How many times a week do you usually use your washing machine?
+tab <- table(data$energy_006_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
 ```
 
 <br><br><br>
 
-### 5. Make today a no meat day
+
+### 7. Check out a second-hand clothing store
+##### Do you already buy your clothes in second-hand stores?
+```{r Top10_7_consumption_001_success_2, fig.showtext=TRUE}
+
+tab <- table(data$consumption_001_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341") +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+```
+
+<br><br><br>
+
+### 8. Recycle some rubbish
+##### Do you already dispose of all of your recycable rubbish correctly?
+```{r Top10_8_waste_002_success_2, fig.showtext=TRUE}
+
+tab <- table(data$waste_002_success_2)
+tab <- as.data.frame(tab)
+tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+
+ggplot(tab, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "#69a341", width = 0.6) +
+  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
+  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
+  ylab("Number of successful completions") +
+  xlab("") +
+  theme_classic() +
+  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
+  theme(text = element_text(size = textsize, family = "poppins"),
+        plot.title = element_text(size = textsize, vjust = 3)) +
+  coord_flip()
+```
+
+<br><br><br>
+
+### 9. Make today a no meat day
 ##### What did you eat instead of meat products?
-```{r Top10_5_diet_003_success_2, fig.showtext=TRUE, eval=FALSE}
+```{r Top10_9_diet_003_success_2, fig.showtext=TRUE}
 
 tab <- table(data$diet_003_success_2)
 tab <- as.data.frame(tab)
@@ -807,9 +889,9 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 <br><br><br>
 
-### 6. Shower with a stopwatch next week
+### 10. Shower with a stopwatch next week
 ##### How long are your showers normally (in minutes)?
-```{r Top10_6_shower_duration, fig.showtext=TRUE, eval=FALSE}
+```{r Top10_10_shower_duration, fig.showtext=TRUE}
 
 tab <- table(data$`shower duration`)
 tab <- as.data.frame(tab)
@@ -839,97 +921,34 @@ ggplot(tab, aes(x = Var1, y = Freq)) +
 
 ```
 
-<br><br><br>
 
-### 7. Unplug unused electrical appliances for two weeks
-##### Please select the most relevant option that led to your success with this challenge: 
-```{r Top10_7_energy_002_success_2, fig.showtext=TRUE, eval=FALSE}
 
-tab <- table(data$energy_002_success_2)
-tab <- as.data.frame(tab)
-tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
+```{r}
+if (params$write_excel) {
+  out <- openxlsx::createWorkbook()
 
-ggplot(tab, aes(x = Var1, y = Freq)) +
-  geom_bar(stat = "identity", fill = "#69a341") +
-  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
-  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
-  ylab("Number of successful completions") +
-  xlab("") +
-  theme_classic() +
-  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
-  theme(text = element_text(size = textsize, family = "poppins"),
-        plot.title = element_text(size = textsize, vjust = 3)) +
-  coord_flip()
+  openxlsx::addWorksheet(out, "data")
+  openxlsx::addWorksheet(out, "user_values")
+  openxlsx::addWorksheet(out, "challenges")
+  openxlsx::addWorksheet(out, "weekly_assignments")
+  openxlsx::addWorksheet(out, "aggregated_data")  
+  
+  openxlsx::writeData(out, sheet = "data", x = data)
+  openxlsx::writeData(out, sheet = "user_values", x = user_values)
+  openxlsx::writeData(out, sheet = "challenges", x = challenges)
+  openxlsx::writeData(out, sheet = "weekly_assignments", x = weekly_assignments)
+  
+  aggregated_data <- aggregate_challenges(data, challenges)
+  openxlsx::writeData(out, sheet = "aggregated_data", x = aggregated_data)
+  
+  
+  out_name <- paste0("data_", Sys.Date(), ".xlsx")
+  openxlsx::saveWorkbook(out, file.path(params$out_dir, out_name), overwrite = TRUE)
+
+  
+
+}
 ```
 
-<br><br><br>
-
-### 8. Recycle some rubbish
-##### Do you already dispose of all of your recycable rubbish correctly?
-```{r Top10_8_waste_002_success_2, fig.showtext=TRUE, eval=FALSE}
-
-tab <- table(data$waste_002_success_2)
-tab <- as.data.frame(tab)
-tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
-
-ggplot(tab, aes(x = Var1, y = Freq)) +
-  geom_bar(stat = "identity", fill = "#69a341", width = 0.6) +
-  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
-  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
-  ylab("Number of successful completions") +
-  xlab("") +
-  theme_classic() +
-  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
-  theme(text = element_text(size = textsize, family = "poppins"),
-        plot.title = element_text(size = textsize, vjust = 3)) +
-  coord_flip()
-```
-
-<br><br><br>
-
-### 9. Try something fun that doesn‘t require electricity
-##### Please select the most relevant option that led to your success with this challenge: 
-```{r Top10_9_energy_008_success_2, fig.showtext=TRUE, eval=FALSE}
-
-tab <- table(data$energy_008_success_2)
-tab <- as.data.frame(tab)
-tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
-
-ggplot(tab, aes(x = Var1, y = Freq)) +
-  geom_bar(stat = "identity", fill = "#69a341") +
-  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
-  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
-  ylab("Number of successful completions") +
-  xlab("") +
-  theme_classic() +
-  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
-  theme(text = element_text(size = textsize, family = "poppins"),
-        plot.title = element_text(size = textsize, vjust = 3)) +
-  coord_flip()
-```
-
-
-<br><br><br>
-
-### 10. Set your washing machine to eco mode
-##### Please select the most relevant option that led to your success with this challenge: 
-```{r Top10_10_energy_006_success_2, fig.showtext=TRUE, eval=FALSE}
-# No response to: How many times a week do you usually use your washing machine?
-tab <- table(data$energy_006_success_2)
-tab <- as.data.frame(tab)
-tab$Var1 <- factor(tab$Var1, levels = tab$Var1[order(tab$Freq)])
-
-ggplot(tab, aes(x = Var1, y = Freq)) +
-  geom_bar(stat = "identity", fill = "#69a341") +
-  scale_y_continuous(limits = c(0, max(tab$Freq) * 1.1)) +
-  scale_x_discrete(limits = levels(tab$Var1), labels = function(x) stringr::str_wrap(x, width = 25)) + 
-  ylab("Number of successful completions") +
-  xlab("") +
-  theme_classic() +
-  geom_text(aes(label = Freq), hjust = -0.1, size = labelsize) +
-  theme(text = element_text(size = textsize, family = "poppins"),
-        plot.title = element_text(size = textsize, vjust = 3)) +
-  coord_flip()
-```
 
 

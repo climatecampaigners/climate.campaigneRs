@@ -387,30 +387,70 @@ add_success <- function(data, challenges) {
 #' @noRd
 #'
 create_df <- function(x) {
-  if (all(is.na(x))) {
-    df <- rep(0, ncol(x))
+  x_df <-  x[, !grepl("^city$|^country", names(x))]
+
+  if (all(is.na(x_df))) {
+    df <- rep(0, ncol(x_df))
     df <- as.data.frame(df)
-    rows <- colnames(x)
+    rows <- colnames(x_df)
 
   } else {
-    x[!is.na(x)] <- 1
-    x <- sapply(x, as.numeric)
-    x <- as.data.frame(x)
-    x[is.na(x)] <- 0
+    x_df[!is.na(x_df)] <- 1
+    x_df <- sapply(x_df, as.numeric)
+    x_df <- as.data.frame(x_df)
+    x_df[is.na(x_df)] <- 0
 
-    df <- as.data.frame(colSums(x, na.rm = TRUE))
-    rows <- rownames(df)
+    x_df <- cbind(x$city, x$country, x_df)
+    names(x_df)[1:2] <- c("city", "country")
+
+    # df <- as.data.frame(colSums(x_df, na.rm = TRUE))
+
+
+    df <- x_df |>
+      group_by(country, city) |>
+      summarise(across(everything(), sum)) |>
+      ungroup()
+
+    # drop any city / country with all zero
+    df <- df[rowSums(df[,!(names(df) %in% c("country", "city"))])>0,]
+
+    # Missing country or City name is "Unknown"
+    df[is.na(df)] <- "Unknown"
+
+
+    df_all_cities <- df |>
+      group_by(country) |>
+      summarise(across(-city, sum)) |>
+      ungroup()
+
+    df_all_cities$city <- "All cities"
+
+    df_all <- df |>
+      summarise(across(-c(country, city), sum)) |>
+      ungroup()
+
+    df_all$city <- "All"
+    df_all$country <- "All"
+
+    df_final <- rbind.fill(df, df_all_cities, df_all)
+
+    df_final_long <- df_final |>
+      pivot_longer(cols = starts_with("challenge"), names_to = "challenge", values_to = "val")
+
+
+
+    #rows <- rownames(df)
   }
-  df <- cbind(rows, df)
-  rownames(df) <- NULL
-  names(df) <- c("challenge", "val")
+  #df <- cbind(rows, df)
+  rownames(df_final_long) <- NULL
+  #names(df) <- c("challenge", "val")
 
-  df$challenge <- gsub("challenges\\.", "", df$challenge)
-  names(df)[2] <- unique(gsub("\\d*\\.", "", df$challenge))
+  df_final_long$challenge <- gsub("challenges\\.", "", df_final_long$challenge)
+  names(df_final_long)[4] <- unique(gsub("\\d*\\.", "", df_final_long$challenge))
 
-  df$challenge <- gsub("\\..*", "", df$challenge)
+  df_final_long$challenge <- gsub("\\..*", "", df_final_long$challenge)
 
-  df
+  df_final_long
 
 }
 
@@ -425,7 +465,7 @@ create_df <- function(x) {
 #' except id, start and end date are identical.
 
 #' @export
-#'
+#' @importFrom dplyr ungroup group_by across summarise
 #' @examples
 #' \donttest{
 #' challenges <- get_challenges()
@@ -433,52 +473,110 @@ create_df <- function(x) {
 #' data <- result$data
 #' aggregate_challenges(data, challenges)
 #' }
-
 aggregate_challenges <- function(data, challenges){
   challenge <- NULL
-  df <- get_subset(data, "\\.accepted|\\.rejected|\\.finished|\\.success")
+  df <- get_subset(data, "\\.accepted|\\.rejected|\\.finished|\\.success|^city$")
 
   # success:
-  x <- df[, grepl("\\.success", colnames(df))]
+  x <- df[, grepl("\\.success|^city$|^country$", colnames(df))]
   success <- colSums(x == "Yes", na.rm = TRUE)
-  fail <- colSums(x == "No", na.rm = TRUE)
-  x_df <- as.data.frame(cbind(success, fail))
 
-  rows <- rownames(x_df)
-  x_df <- cbind(rows, x_df)
+  success <- x |>
+    group_by(country, city) |>
+    summarise(across(everything(), ~ sum(. == "Yes", na.rm = TRUE))) |>
+    ungroup() |>
+    pivot_longer(cols = starts_with("challenge"), names_to = "challenge", values_to = "success")
+
+  success[is.na(success)] <- "Unknown"
+
+  success_cities <- success |>
+    group_by(country, challenge) |>
+    summarise(across(-city, sum)) |>
+    ungroup()
+
+  success_cities$city <- "All cities"
+
+  success_all <- success |>
+    group_by(challenge) |>
+    summarise(across(-c(country, city), sum)) |>
+    ungroup()
+
+  success_all$city <- "All"
+  success_all$country <- "All"
+
+  success_final <- rbind.fill(success, success_cities, success_all)
+
+
+  fail <- x |>
+    group_by(country, city) |>
+    summarise(across(everything(), ~ sum(. == "No", na.rm = TRUE))) |>
+    ungroup() |>
+    pivot_longer(cols = starts_with("challenge"), names_to = "challenge", values_to = "fail")
+
+  fail[is.na(fail)] <- "Unknown"
+
+  fail_cities <- fail |>
+    group_by(country, challenge) |>
+    summarise(across(-city, sum)) |>
+    ungroup()
+
+  fail_cities$city <- "All cities"
+
+  fail_all <- fail |>
+    group_by(challenge) |>
+    summarise(across(-c(country, city), sum)) |>
+    ungroup()
+
+  fail_all$city <- "All"
+  fail_all$country <- "All"
+
+  fail_final <- rbind.fill(fail, fail_cities, fail_all)
+
+
+  #  fail <- colSums(x == "No", na.rm = TRUE)
+  #  x_df <- as.data.frame(cbind(success, fail))
+  x_df <- merge(success_final, fail_final, by = c("country", "city", "challenge"), all.x = TRUE, all.y = TRUE)
+
+  #rows <- rownames(x_df)
+  # x_df <- cbind(rows, x_df)
   rownames(x_df) <- NULL
-  names(x_df)[1] <- "challenge"
+  # names(x_df)[1] <- "challenge"
   x_df$challenge <- gsub("challenges\\.", "", x_df$challenge)
   x_df$challenge <- gsub("\\..*", "", x_df$challenge)
 
   # group challenges (by title)
   x_df <- merge(x_df, challenges[, c("id", "title")], by.x = "challenge", by.y = "id")
 
+
+  # aggregate by same challenge name
   x_df <- x_df |>
-    dplyr::group_by(title) |>
+    dplyr::group_by(title, country, city) |>
     dplyr::summarise(success = sum(success),
                      fail = sum(fail), .groups = "drop") |>
     dplyr::ungroup()
 
 
+
   # accepted finished rejected:
-  accepted <- create_df(df[, grepl("\\.accepted", colnames(df))])
-  finished <- create_df(df[, grepl("\\.finished", colnames(df))])
-  rejected <- create_df(df[, grepl("\\.rejected", colnames(df))])
+  accepted <- create_df(df[, grepl("\\.accepted|^city$|^country$", colnames(df))])
+  finished <- create_df(df[, grepl("\\.finished|^city$|^country$", colnames(df))])
+  rejected <- create_df(df[, grepl("\\.rejected|^city$|^country$", colnames(df))])
+
 
 
   # merge:
-  m <- merge(accepted, finished, by = "challenge")
-  m <- merge(m, rejected, by = "challenge")
+  m <- merge(accepted, finished, by = c("challenge", "country", "city"), all.x = TRUE, all.y = TRUE)
+  m <- merge(m, rejected, by = c("challenge", "country", "city"), all.x = TRUE, all.y = TRUE)
 
+  m[is.na(m)] <- 0
 
   # merge with challenges
   challenges_subset <- challenges[, c("id", "category", "title", "duration")]
-  challenges_df <- merge(m, challenges_subset, by.x = "challenge", by.y = "id")
+  challenges_df <- merge(m, challenges_subset, by.x = "challenge", by.y = "id", all.x = TRUE)
 
   group_vars <- setdiff(names(challenges_df), c("challenge", "accepted", "finished", "rejected"))
 
-  # group challenges
+  # group challenges by title and duration such that different challenges with the same name are summarised
   challenges_df <- challenges_df |>
     dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
     dplyr::summarise(accepted = sum(accepted),
@@ -488,9 +586,7 @@ aggregate_challenges <- function(data, challenges){
 
 
 
-  success_df <- merge(x_df, challenges_df, by.x = "title", by.y = "title")
-
-  final_df <- success_df
+  final_df <- merge(x_df, challenges_df, by = c("title", "country", "city"))
 
 
   final_df$open <- final_df$accepted - final_df$finished
@@ -500,7 +596,7 @@ aggregate_challenges <- function(data, challenges){
   final_df$duration <- sapply(strsplit(final_df$duration, split = "\\s+"), "[", 1)
   final_df$duration <- as.numeric(final_df$duration)
 
-  col_order <- c("title", "category", "duration", "unit", "accepted", "finished",
+  col_order <- c("title", "category", "country", "city", "duration", "unit", "accepted", "finished",
                  "success", "fail", "open", "diff")
   final_df <- final_df[, col_order]
 
